@@ -4,13 +4,13 @@ Main Application Entry Point
 MODIFICATIONS:
 - Added admin routes import and registration
 - Added routes to serve login.html and admin.html
+- Fixed static file serving
 """
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
@@ -18,7 +18,7 @@ import logging
 
 from logger import get_logger, redirect_prints_to_logging
 from routes import router as api_router
-from admin_routes import router as admin_router  # NEW: Import admin routes
+from admin_routes import router as admin_router
 from services.scheduler_service import start_scheduler
 from database_setup import init_sqlite_db
 
@@ -68,7 +68,7 @@ app = FastAPI(lifespan=lifespan)
 logger.info("Setting up CORS middleware...")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5050", "http://127.0.0.1:7070"],  # Added port 7070 for admin access
+    allow_origins=["http://127.0.0.1:5050", "http://127.0.0.1:7070"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -88,28 +88,73 @@ if not os.path.exists(frontend_dir):
     logger.warning(f"⚠️ Frontend directory not found at: {frontend_dir}")
     logger.warning("Serving API only.")
 else:
-    logger.info(f"✅ Serving static files from: {frontend_dir}")
-    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+    logger.info(f"✅ Frontend directory found at: {frontend_dir}")
+    
+    # Serve individual static files
+    @app.get("/style.css")
+    async def serve_style_css():
+        css_path = os.path.join(frontend_dir, "style.css")
+        if os.path.exists(css_path):
+            return FileResponse(css_path, media_type="text/css")
+        logger.error(f"style.css not found at {css_path}")
+        return HTMLResponse(content="/* CSS not found */", status_code=404)
+    
+    @app.get("/app.js")
+    async def serve_app_js():
+        js_path = os.path.join(frontend_dir, "app.js")
+        if os.path.exists(js_path):
+            return FileResponse(js_path, media_type="application/javascript")
+        logger.error(f"app.js not found at {js_path}")
+        return HTMLResponse(content="// JS not found", status_code=404)
+    
+    @app.get("/login.js")
+    async def serve_login_js():
+        js_path = os.path.join(frontend_dir, "login.js")
+        if os.path.exists(js_path):
+            return FileResponse(js_path, media_type="application/javascript")
+        logger.error(f"login.js not found at {js_path}")
+        return HTMLResponse(content="// JS not found", status_code=404)
+    
+    @app.get("/admin.js")
+    async def serve_admin_js():
+        js_path = os.path.join(frontend_dir, "admin.js")
+        if os.path.exists(js_path):
+            return FileResponse(js_path, media_type="application/javascript")
+        logger.error(f"admin.js not found at {js_path}")
+        return HTMLResponse(content="// JS not found", status_code=404)
+    
+    @app.get("/admin-style.css")
+    async def serve_admin_style_css():
+        css_path = os.path.join(frontend_dir, "admin-style.css")
+        if os.path.exists(css_path):
+            return FileResponse(css_path, media_type="text/css")
+        logger.error(f"admin-style.css not found at {css_path}")
+        return HTMLResponse(content="/* CSS not found */", status_code=404)
 
-    templates = Jinja2Templates(directory=frontend_dir)
-
-    # Main application page
+    # HTML pages
     @app.get("/", response_class=HTMLResponse)
-    async def serve_home(request: Request):
+    async def serve_home():
         logger.debug("Serving home page (index.html)")
-        return templates.TemplateResponse("index.html", {"request": request})
+        html_path = os.path.join(frontend_dir, "index.html")
+        if os.path.exists(html_path):
+            return FileResponse(html_path)
+        return HTMLResponse(content="<h1>index.html not found</h1>", status_code=404)
     
-    # NEW: Login page
     @app.get("/login", response_class=HTMLResponse)
-    async def serve_login(request: Request):
+    async def serve_login():
         logger.debug("Serving login page (login.html)")
-        return templates.TemplateResponse("login.html", {"request": request})
+        html_path = os.path.join(frontend_dir, "login.html")
+        if os.path.exists(html_path):
+            return FileResponse(html_path)
+        return HTMLResponse(content="<h1>login.html not found</h1>", status_code=404)
     
-    # NEW: Admin panel page
     @app.get("/admin", response_class=HTMLResponse)
-    async def serve_admin(request: Request):
+    async def serve_admin():
         logger.debug("Serving admin panel (admin.html)")
-        return templates.TemplateResponse("admin.html", {"request": request})
+        html_path = os.path.join(frontend_dir, "admin.html")
+        if os.path.exists(html_path):
+            return FileResponse(html_path)
+        return HTMLResponse(content="<h1>admin.html not found</h1>", status_code=404)
 
 
 # --- Include API Routes ---
@@ -117,7 +162,7 @@ logger.info("Registering API routes...")
 app.include_router(api_router, prefix="/api")
 logger.info("✅ API routes registered")
 
-# NEW: Include Admin Routes
+# Include Admin Routes
 logger.info("Registering Admin routes...")
 app.include_router(admin_router, prefix="/api")
 logger.info("✅ Admin routes registered")

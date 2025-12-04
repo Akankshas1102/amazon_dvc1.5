@@ -1,5 +1,14 @@
 // frontend/app.js
 
+// Check authentication BEFORE DOM loads
+(function() {
+    const token = localStorage.getItem('adminToken');
+    if (!token && window.location.pathname !== '/login') {
+        console.log('No token found, redirecting to login...');
+        window.location.replace('/login');
+    }
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     App.initialize();
 });
@@ -10,8 +19,22 @@ const App = {
     allBuildings: [],
     selectedBuildingId: null,
     elements: {},
+    token: null,
+    username: null,
 
     initialize() {
+        // Double-check authentication
+        this.token = localStorage.getItem('adminToken');
+        this.username = localStorage.getItem('adminUsername');
+        
+        if (!this.token) {
+            console.log('No token in initialize, redirecting to login...');
+            window.location.replace('/login');
+            return;
+        }
+        
+        console.log('Token found, user:', this.username);
+
         this.elements.buildingsContainer = document.getElementById('deviceList');
         this.elements.loader = document.getElementById('loader');
         this.elements.notification = document.getElementById('notification');
@@ -26,9 +49,23 @@ const App = {
         this.elements.closeButton = document.querySelector('.close-button');
         this.elements.modalSearch = document.getElementById('modalSearch');
         this.elements.modalSelectAllBtn = document.getElementById('modalSelectAllBtn');
+        this.elements.logoutBtn = document.getElementById('logoutBtn');
+
+        // Setup logout button
+        if (this.elements.logoutBtn) {
+            this.elements.logoutBtn.addEventListener('click', () => this.logout());
+        }
 
         this.setupBuildingSelector();
         this.loadAllBuildings();
+    },
+
+    logout() {
+        if (confirm('Are you sure you want to logout?')) {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUsername');
+            window.location.replace('/login');
+        }
     },
 
     showNotification(text, isError = false, timeout = 3000) {
@@ -49,9 +86,35 @@ const App = {
 
     async apiRequest(endpoint, options = {}) {
         const url = `${this.API_BASE_URL}/${endpoint}`;
+        
+        // Add authentication header
+        const headers = {
+            ...options.headers
+        };
+        
+        // Only add auth header for admin endpoints
+        if (endpoint.startsWith('admin/')) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+        
         try {
             if(this.elements.loader) this.elements.loader.style.display = 'block';
-            const response = await fetch(url, options);
+            const response = await fetch(url, {
+                ...options,
+                headers
+            });
+            
+            if (response.status === 401) {
+                // Token expired, redirect to login
+                this.showNotification('Session expired. Please login again.', true);
+                setTimeout(() => {
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminUsername');
+                    window.location.replace('/login');
+                }, 2000);
+                throw new Error('Unauthorized');
+            }
+            
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ detail: `Request failed with status ${response.status}` }));
                 throw new Error(errorData.detail || `Request failed: ${response.status}`);

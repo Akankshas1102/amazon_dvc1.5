@@ -4,11 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Admin Panel - Amazon Device Control</title>
-    <link rel="stylesheet" href="admin-style.css" />
+    <link rel="stylesheet" href="/static/admin-style.css" /> 
 </head>
 <body>
     <div class="admin-container">
-        <!-- Header -->
         <header class="admin-header">
             <div class="header-left">
                 <h1>⚙️ Admin Panel</h1>
@@ -20,15 +19,12 @@
             </div>
         </header>
         
-        <!-- Navigation Tabs -->
         <nav class="admin-nav">
             <button class="nav-tab active" data-tab="queries">Query Configuration</button>
             <button class="nav-tab" data-tab="password">Change Password</button>
         </nav>
         
-        <!-- Tab Content -->
         <main class="admin-main">
-            <!-- Query Configuration Tab -->
             <div id="queries-tab" class="tab-content active">
                 <div class="section-header">
                     <h2>SQL Query Configuration</h2>
@@ -37,7 +33,6 @@
                     </p>
                 </div>
                 
-                <!-- Query List -->
                 <div class="query-list-container">
                     <h3>Available Queries</h3>
                     <div id="queryList" class="query-list">
@@ -45,7 +40,6 @@
                     </div>
                 </div>
                 
-                <!-- Query Editor -->
                 <div class="query-editor-container">
                     <div class="editor-header">
                         <h3 id="editorTitle">Query Editor</h3>
@@ -116,7 +110,6 @@
                 </div>
             </div>
             
-            <!-- Change Password Tab -->
             <div id="password-tab" class="tab-content">
                 <div class="section-header">
                     <h2>Change Password</h2>
@@ -171,10 +164,9 @@
             </div>
         </main>
         
-        <!-- Notification Toast -->
         <div id="notification" class="notification"></div>
     </div>
     
-    <script src="admin.js"></script>
+    <script src="/static/admin.js"></script>
 </body>
 </html>

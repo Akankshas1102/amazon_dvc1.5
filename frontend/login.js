@@ -30,8 +30,8 @@ async function verifyTokenAndRedirect(token) {
         });
         
         if (response.ok) {
-            // Token is valid, redirect to admin panel
-            window.location.href = '/admin';
+            // Token is valid, redirect to the main device list page (/)
+            window.location.href = '/';
         } else {
             // Token is invalid, clear it
             localStorage.removeItem('adminToken');
@@ -80,8 +80,8 @@ async function handleLogin(event) {
             localStorage.setItem('adminToken', data.access_token);
             localStorage.setItem('adminUsername', data.username);
             
-            // Redirect to admin panel
-            window.location.href = '/admin';
+            // Redirect to the main device list page (/)
+            window.location.href = '/';
         } else {
             // Login failed
             showError(data.detail || 'Invalid credentials. Please try again.');
