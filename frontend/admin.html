@@ -19,8 +19,10 @@
             </div>
         </header>
         
-        <nav class="admin-nav" id="adminNav">
-            <!-- Tabs will be dynamically added based on user role -->
+        <nav class="admin-nav">
+            <button class="nav-tab active" data-tab="queries">Query Configuration</button>
+            <button class="nav-tab" data-tab="users">User Management</button>
+            <button class="nav-tab" data-tab="password">Change Password</button>
         </nav>
         
         <main class="admin-main">
@@ -92,33 +94,34 @@
 
                             <!-- Basic Mode Form -->
                             <div id="basicModeForm" style="display:none;">
-                                <div class="form-group" id="deviceTypeGroup" style="display:none;">
-                                    <label for="deviceType">Device Type Filter</label>
+                                <div class="form-group">
+                                    <label for="deviceType">Device Type (for panel_devices query)</label>
                                     <input 
                                         type="number" 
                                         id="deviceType" 
                                         class="form-input" 
                                         placeholder="e.g., 138"
                                     />
-                                    <small>The numeric ID used to filter devices (default: 138 for panel devices)</small>
+                                    <small>Default: 138 (panel devices)</small>
                                 </div>
 
-                                <div class="form-group" id="mainTableGroup" style="display:none;">
-                                    <label for="mainTableName">Main Table Name</label>
+                                <div class="form-group">
+                                    <label for="buildingTableName">Building Table Name</label>
                                     <input 
                                         type="text" 
-                                        id="mainTableName" 
+                                        id="buildingTableName" 
                                         class="form-input" 
-                                        placeholder="e.g., Device_TBL or Building_TBL"
+                                        placeholder="e.g., Building_TBL"
                                     />
-                                    <small>The main table name for this query</small>
+                                    <small>Default: Building_TBL</small>
                                 </div>
 
                                 <div class="info-box">
                                     <strong>ℹ️ Basic Mode</strong>
-                                    <p>In Basic Mode, you can modify safe query parameters:</p>
-                                    <ul id="basicModeInfoList">
-                                        <li>Query-specific parameters will appear above</li>
+                                    <p>In Basic Mode, you can only modify:</p>
+                                    <ul>
+                                        <li><strong>Device Type:</strong> The numeric ID used to filter panel devices</li>
+                                        <li><strong>Building Table:</strong> The name of the table containing building information</li>
                                     </ul>
                                     <p>All other query logic remains unchanged for safety.</p>
                                 </div>
@@ -225,7 +228,7 @@
                 <div class="section-header">
                     <h2>Change Password</h2>
                     <p class="section-description">
-                        Update your password. You will need to login again after changing.
+                        Update your admin password. You will need to login again after changing.
                     </p>
                 </div>
                 

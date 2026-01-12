@@ -137,10 +137,12 @@ body {
     margin: 0 auto;
 }
 
+/* TAB CONTENT - HIDE ALL BY DEFAULT */
 .tab-content {
     display: none;
 }
 
+/* ONLY SHOW ACTIVE TAB */
 .tab-content.active {
     display: block;
 }
@@ -491,9 +493,14 @@ body {
     flex-wrap: wrap;
 }
 
-/* Password Change Form */
+/* Password Change Form - CENTERED ON PAGE */
 .password-form-container {
     max-width: 500px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
 }
 
 .password-form {
@@ -501,6 +508,8 @@ body {
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 30px;
+    width: 100%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 /* Notification Toast */
@@ -593,5 +602,10 @@ body {
         left: 20px;
         right: 20px;
         bottom: 20px;
+    }
+    
+    .password-form-container {
+        min-height: 50vh;
+        padding: 20px 0;
     }
 }

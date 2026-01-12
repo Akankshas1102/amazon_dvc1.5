@@ -4,193 +4,186 @@ const AdminPanel = {
     username: null,
     isAdmin: false,
     currentQuery: null,
-    queryMode: 'basic', // 'basic' or 'advanced'
+    queryMode: 'basic',
     
     init() {
+        console.log('[Admin] Starting initialization...');
+        
         // Check authentication
         this.token = localStorage.getItem('adminToken');
         this.username = localStorage.getItem('adminUsername');
         this.isAdmin = localStorage.getItem('isAdmin') === 'true';
         
-        console.log('[Admin] Initialization:', {
-            hasToken: !!this.token,
-            username: this.username,
-            isAdmin: this.isAdmin
-        });
+        console.log('[Admin] Token exists:', !!this.token);
+        console.log('[Admin] Username:', this.username);
+        console.log('[Admin] Is Admin:', this.isAdmin);
         
         if (!this.token) {
-            // Not logged in, redirect to login
+            console.log('[Admin] No token, redirecting to login...');
             window.location.href = '/login';
+            return;
+        }
+
+        if (!this.isAdmin) {
+            console.log('[Admin] Not admin, redirecting to main app...');
+            this.showNotification('Admin privileges required. Redirecting to main app...', 'error');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
             return;
         }
         
         // Display username
-        document.getElementById('username').textContent = this.username || 'User';
+        const usernameElement = document.getElementById('username');
+        if (usernameElement) {
+            usernameElement.textContent = this.username || 'Admin';
+        }
         
-        // Setup navigation based on user role
-        this.setupNavigation();
-        
-        // Setup event listeners
+        console.log('[Admin] Setting up event listeners...');
         this.setupEventListeners();
         
-        // Load initial data for first tab
-        const firstTab = this.isAdmin ? 'queries' : 'password';
-        this.loadInitialDataForTab(firstTab);
-    },
-    
-    setupNavigation() {
-        const navContainer = document.getElementById('adminNav');
-        navContainer.innerHTML = '';
+        console.log('[Admin] Showing first tab...');
+        this.switchTab('queries');
         
-        // Admin users see all tabs
-        if (this.isAdmin) {
-            navContainer.innerHTML = `
-                <button class="nav-tab active" data-tab="queries">Query Configuration</button>
-                <button class="nav-tab" data-tab="users">User Management</button>
-                <button class="nav-tab" data-tab="password">Change Password</button>
-            `;
-        } else {
-            // Regular users only see change password tab
-            navContainer.innerHTML = `
-                <button class="nav-tab active" data-tab="password">Change Password</button>
-            `;
-        }
+        console.log('[Admin] Loading initial data...');
+        this.loadQueries();
+        this.loadUsers();
         
-        // Show/hide tab content based on role
-        document.getElementById('queries-tab').style.display = this.isAdmin ? 'block' : 'none';
-        document.getElementById('users-tab').style.display = this.isAdmin ? 'block' : 'none';
-        document.getElementById('password-tab').style.display = 'block';
-        
-        // Set active tab
-        if (!this.isAdmin) {
-            document.getElementById('queries-tab').classList.remove('active');
-            document.getElementById('password-tab').classList.add('active');
-        }
-    },
-    
-    loadInitialDataForTab(tabName) {
-        if (tabName === 'queries' && this.isAdmin) {
-            this.loadQueries();
-        } else if (tabName === 'users' && this.isAdmin) {
-            this.loadUsers();
-        }
+        console.log('[Admin] Initialization complete!');
     },
     
     setupEventListeners() {
+        console.log('[Admin] Setting up event listeners...');
+        
         // Logout button
-        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
-        
-        // Tab navigation
-        document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
-        });
-        
-        // Query editor buttons (only if admin)
-        if (this.isAdmin) {
-            document.getElementById('saveQueryBtn').addEventListener('click', () => this.saveQuery());
-            document.getElementById('cancelEditBtn').addEventListener('click', () => this.cancelEdit());
-            document.getElementById('loadDefaultBtn').addEventListener('click', () => this.loadDefaultQuery());
-            document.getElementById('testQueryBtn').addEventListener('click', () => this.testQuery());
-            
-            // Query mode buttons
-            document.getElementById('basicModeBtn').addEventListener('click', () => this.switchQueryMode('basic'));
-            document.getElementById('advancedModeBtn').addEventListener('click', () => this.switchQueryMode('advanced'));
-            
-            // Create user form
-            document.getElementById('createUserForm').addEventListener('submit', (e) => this.createUser(e));
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.logout());
+            console.log('[Admin] Logout button listener added');
         }
         
-        // Change password form (available to all users)
-        document.getElementById('changePasswordForm').addEventListener('submit', (e) => this.changePassword(e));
+        // Tab navigation
+        const navTabs = document.querySelectorAll('.nav-tab');
+        console.log('[Admin] Found nav tabs:', navTabs.length);
+        
+        navTabs.forEach((tab, index) => {
+            const tabName = tab.dataset.tab;
+            console.log(`[Admin] Setting up tab ${index}:`, tabName);
+            
+            tab.addEventListener('click', (e) => {
+                console.log('[Admin] Tab clicked:', tabName);
+                this.switchTab(tabName);
+            });
+        });
+        
+        // Query editor buttons
+        const saveQueryBtn = document.getElementById('saveQueryBtn');
+        if (saveQueryBtn) saveQueryBtn.addEventListener('click', () => this.saveQuery());
+        
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        if (cancelEditBtn) cancelEditBtn.addEventListener('click', () => this.cancelEdit());
+        
+        const loadDefaultBtn = document.getElementById('loadDefaultBtn');
+        if (loadDefaultBtn) loadDefaultBtn.addEventListener('click', () => this.loadDefaultQuery());
+        
+        const testQueryBtn = document.getElementById('testQueryBtn');
+        if (testQueryBtn) testQueryBtn.addEventListener('click', () => this.testQuery());
+        
+        // Query mode buttons
+        const basicModeBtn = document.getElementById('basicModeBtn');
+        if (basicModeBtn) basicModeBtn.addEventListener('click', () => this.switchQueryMode('basic'));
+        
+        const advancedModeBtn = document.getElementById('advancedModeBtn');
+        if (advancedModeBtn) advancedModeBtn.addEventListener('click', () => this.switchQueryMode('advanced'));
+        
+        // Change password form
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        if (changePasswordForm) {
+            changePasswordForm.addEventListener('submit', (e) => this.changePassword(e));
+        }
+        
+        // Create user form
+        const createUserForm = document.getElementById('createUserForm');
+        if (createUserForm) {
+            createUserForm.addEventListener('submit', (e) => this.createUser(e));
+        }
+        
+        console.log('[Admin] Event listeners setup complete');
     },
     
     switchTab(tabName) {
-        // Update nav tabs
-        document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        console.log('[Admin] ===== SWITCHING TO TAB:', tabName, '=====');
+        
+        // Get all nav tabs
+        const navTabs = document.querySelectorAll('.nav-tab');
+        console.log('[Admin] Found nav tabs:', navTabs.length);
+        
+        // Update nav tabs - remove active from all, add to clicked
+        navTabs.forEach(tab => {
+            const isActive = tab.dataset.tab === tabName;
+            if (isActive) {
+                tab.classList.add('active');
+                console.log('[Admin] Activated nav tab:', tab.dataset.tab);
+            } else {
+                tab.classList.remove('active');
+            }
         });
         
-        // Update tab content
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.classList.toggle('active', content.id === `${tabName}-tab`);
+        // Get all tab contents
+        const tabContents = document.querySelectorAll('.tab-content');
+        console.log('[Admin] Found tab contents:', tabContents.length);
+        
+        // Hide all tab contents first
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+            console.log('[Admin] Removed active from:', content.id);
         });
+        
+        // Show the selected tab content
+        const targetTab = document.getElementById(`${tabName}-tab`);
+        if (targetTab) {
+            targetTab.classList.add('active');
+            console.log('[Admin] ✅ Activated tab content:', targetTab.id);
+        } else {
+            console.error('[Admin] ❌ Tab content not found:', `${tabName}-tab`);
+        }
 
         // Load data if needed
-        if (tabName === 'users' && this.isAdmin) {
+        if (tabName === 'users') {
+            console.log('[Admin] Loading users for users tab...');
             this.loadUsers();
-        } else if (tabName === 'queries' && this.isAdmin) {
-            this.loadQueries();
         }
+        
+        console.log('[Admin] ===== TAB SWITCH COMPLETE =====');
     },
     
     switchQueryMode(mode) {
         this.queryMode = mode;
         
-        // Update button states
         document.getElementById('basicModeBtn').classList.toggle('active', mode === 'basic');
         document.getElementById('advancedModeBtn').classList.toggle('active', mode === 'advanced');
         
-        // Show/hide appropriate forms
         document.getElementById('basicModeForm').style.display = mode === 'basic' ? 'block' : 'none';
         document.getElementById('advancedModeForm').style.display = mode === 'advanced' ? 'block' : 'none';
 
-        // If switching modes with a loaded query, populate the appropriate form
         if (this.currentQuery) {
             if (mode === 'basic') {
-                this.populateBasicMode(this.currentQuery.query_sql, this.currentQuery.query_name);
+                this.populateBasicMode(this.currentQuery.query_sql);
             } else {
                 this.populateAdvancedMode(this.currentQuery.query_sql);
             }
         }
     },
     
-    populateBasicMode(querySQL, queryName) {
-        // Hide all basic mode groups first
-        document.getElementById('deviceTypeGroup').style.display = 'none';
-        document.getElementById('mainTableGroup').style.display = 'none';
+    populateBasicMode(querySQL) {
+        const deviceTypeMatch = querySQL.match(/dvcDeviceType_FRK\s*=\s*(\d+)/i);
+        if (deviceTypeMatch) {
+            document.getElementById('deviceType').value = deviceTypeMatch[1];
+        }
         
-        // Clear values
-        document.getElementById('deviceType').value = '';
-        document.getElementById('mainTableName').value = '';
-        
-        // Update info list
-        const infoList = document.getElementById('basicModeInfoList');
-        infoList.innerHTML = '';
-        
-        if (queryName === 'device') {
-            // Show device-specific fields
-            document.getElementById('deviceTypeGroup').style.display = 'block';
-            document.getElementById('mainTableGroup').style.display = 'block';
-            
-            // Extract device type
-            const deviceTypeMatch = querySQL.match(/dvcDeviceType_FRK\s*=\s*(\d+)/i);
-            if (deviceTypeMatch) {
-                document.getElementById('deviceType').value = deviceTypeMatch[1];
-            }
-            
-            // Extract main table (Device_TBL)
-            const tableMatch = querySQL.match(/FROM\s+(\w+)/i);
-            if (tableMatch) {
-                document.getElementById('mainTableName').value = tableMatch[1];
-            }
-            
-            infoList.innerHTML = `
-                <li><strong>Device Type:</strong> Numeric ID to filter devices (e.g., 138 for panels)</li>
-                <li><strong>Main Table:</strong> Should be Device_TBL or related device tables</li>
-            `;
-        } else if (queryName === 'building') {
-            // Show building-specific fields
-            document.getElementById('mainTableGroup').style.display = 'block';
-            
-            // Extract main table (Building_TBL)
-            const tableMatch = querySQL.match(/FROM\s+(\w+)/i);
-            if (tableMatch) {
-                document.getElementById('mainTableName').value = tableMatch[1];
-            }
-            
-            infoList.innerHTML = `
-                <li><strong>Main Table:</strong> Should be Building_TBL</li>
-            `;
+        const buildingTableMatch = querySQL.match(/FROM\s+(\w+)/i);
+        if (buildingTableMatch) {
+            document.getElementById('buildingTableName').value = buildingTableMatch[1];
         }
     },
     
@@ -223,7 +216,6 @@ const AdminPanel = {
             });
             
             if (response.status === 401) {
-                // Token expired or invalid
                 this.showNotification('Session expired. Please login again.', 'error');
                 setTimeout(() => {
                     localStorage.removeItem('adminToken');
@@ -235,7 +227,6 @@ const AdminPanel = {
             }
             
             if (response.status === 403) {
-                // Not authorized (not admin)
                 this.showNotification('Admin privileges required', 'error');
                 throw new Error('Forbidden');
             }
@@ -255,6 +246,8 @@ const AdminPanel = {
     
     showNotification(message, type = 'success') {
         const notification = document.getElementById('notification');
+        if (!notification) return;
+        
         notification.textContent = message;
         notification.className = `notification ${type}`;
         notification.classList.add('show');
@@ -264,12 +257,10 @@ const AdminPanel = {
         }, 4000);
     },
     
-    // ==================== QUERY MANAGEMENT ====================
-    
     async loadQueries() {
-        if (!this.isAdmin) return;
-        
         const queryList = document.getElementById('queryList');
+        if (!queryList) return;
+        
         queryList.innerHTML = '<div class="loader">Loading queries...</div>';
         
         try {
@@ -277,28 +268,12 @@ const AdminPanel = {
             
             queryList.innerHTML = '';
             
-            // Only show device and building queries
-            const queryTypes = ['device', 'building'];
-            const queriesToShow = data.queries.filter(q => queryTypes.includes(q.query_name));
-            
-            // Add defaults if not in database
-            queryTypes.forEach(queryName => {
-                if (!queriesToShow.find(q => q.query_name === queryName)) {
-                    queriesToShow.push({
-                        query_name: queryName,
-                        description: `Default ${queryName} query`,
-                        created_at: null,
-                        updated_at: null
-                    });
-                }
-            });
-            
-            if (queriesToShow.length === 0) {
+            if (data.queries.length === 0) {
                 queryList.innerHTML = '<p class="empty-state">No queries found</p>';
                 return;
             }
             
-            queriesToShow.forEach(query => {
+            data.queries.forEach(query => {
                 const queryItem = this.createQueryListItem(query);
                 queryList.appendChild(queryItem);
             });
@@ -316,17 +291,9 @@ const AdminPanel = {
         
         const isDefault = !query.updated_at;
         
-        // Friendly display names
-        const displayNames = {
-            'device': 'Device Query',
-            'building': 'Building Query'
-        };
-        
-        const displayName = displayNames[query.query_name] || query.query_name;
-        
         div.innerHTML = `
             <div class="query-item-header">
-                <h4>${displayName}${isDefault ? ' <span class="badge">Default</span>' : ''}</h4>
+                <h4>${query.query_name}${isDefault ? ' <span class="badge">Default</span>' : ''}</h4>
                 <span class="query-item-date">
                     ${query.updated_at ? `Updated: ${new Date(query.updated_at).toLocaleDateString()}` : 'Not customized'}
                 </span>
@@ -340,40 +307,24 @@ const AdminPanel = {
     },
     
     async loadQueryForEdit(queryName) {
-        if (!this.isAdmin) return;
-        
         try {
             const data = await this.apiRequest(`queries/${queryName}`);
             
             this.currentQuery = data;
             
-            // Hide placeholder, show editor
             document.getElementById('editorPlaceholder').style.display = 'none';
             document.getElementById('queryEditor').style.display = 'block';
             document.getElementById('loadDefaultBtn').style.display = 'inline-block';
             document.getElementById('testQueryBtn').style.display = 'inline-block';
             
-            // Friendly display names
-            const displayNames = {
-                'device': 'Device Query',
-                'building': 'Building Query'
-            };
-            
-            const displayName = displayNames[queryName] || queryName;
-            
-            // Populate form
-            document.getElementById('editorTitle').textContent = `Editing: ${displayName}`;
+            document.getElementById('editorTitle').textContent = `Editing: ${queryName}`;
             document.getElementById('queryName').value = data.query_name;
             document.getElementById('queryDescription').value = data.description || '';
             
-            // Start in basic mode by default
             this.switchQueryMode('basic');
-            this.populateBasicMode(data.query_sql, data.query_name);
-            
-            // Also populate advanced mode in background
+            this.populateBasicMode(data.query_sql);
             this.populateAdvancedMode(data.query_sql);
             
-            // Highlight active query in list
             document.querySelectorAll('.query-item').forEach(item => {
                 item.classList.toggle('active', item.dataset.queryName === queryName);
             });
@@ -384,7 +335,7 @@ const AdminPanel = {
     },
     
     async loadDefaultQuery() {
-        if (!this.isAdmin || !this.currentQuery) return;
+        if (!this.currentQuery) return;
         
         if (!confirm('This will replace the current query with the default. Continue?')) {
             return;
@@ -394,7 +345,7 @@ const AdminPanel = {
             const data = await this.apiRequest(`queries/${this.currentQuery.query_name}/default`);
             
             if (this.queryMode === 'basic') {
-                this.populateBasicMode(data.query_sql, this.currentQuery.query_name);
+                this.populateBasicMode(data.query_sql);
             } else {
                 document.getElementById('querySQL').value = data.query_sql;
             }
@@ -407,7 +358,7 @@ const AdminPanel = {
     },
     
     async testQuery() {
-        if (!this.isAdmin || !this.currentQuery) return;
+        if (!this.currentQuery) return;
         
         const querySQL = this.buildQueryFromMode();
         
@@ -416,14 +367,12 @@ const AdminPanel = {
             return;
         }
         
-        // Basic client-side validation
         if (!querySQL.toLowerCase().trim().startsWith('select')) {
             this.showNotification('Query must be a SELECT statement', 'error');
             return;
         }
         
         try {
-            // Temporarily save to test
             const response = await this.apiRequest(`queries/${this.currentQuery.query_name}/test`, {
                 method: 'POST'
             });
@@ -442,27 +391,19 @@ const AdminPanel = {
         if (this.queryMode === 'advanced') {
             return document.getElementById('querySQL').value.trim();
         } else {
-            // Build query from basic mode inputs
-            const mainTableName = document.getElementById('mainTableName').value.trim();
             const deviceType = document.getElementById('deviceType').value.trim();
+            const buildingTable = document.getElementById('buildingTableName').value.trim();
             
-            // Get current query SQL as template
             if (!this.currentQuery) return '';
             
             let querySQL = this.currentQuery.query_sql;
             
-            // Replace table names if provided
-            if (mainTableName) {
-                if (this.currentQuery.query_name === 'device') {
-                    querySQL = querySQL.replace(/Device_TBL/gi, mainTableName);
-                } else if (this.currentQuery.query_name === 'building') {
-                    querySQL = querySQL.replace(/Building_TBL/gi, mainTableName);
-                }
+            if (deviceType) {
+                querySQL = querySQL.replace(/dvcDeviceType_FRK\s*=\s*\d+/gi, `dvcDeviceType_FRK = ${deviceType}`);
             }
             
-            // Replace device type if provided (only for device query)
-            if (deviceType && this.currentQuery.query_name === 'device') {
-                querySQL = querySQL.replace(/dvcDeviceType_FRK\s*=\s*\d+/gi, `dvcDeviceType_FRK = ${deviceType}`);
+            if (buildingTable) {
+                querySQL = querySQL.replace(/Building_TBL/gi, buildingTable);
             }
             
             return querySQL;
@@ -470,7 +411,7 @@ const AdminPanel = {
     },
     
     async saveQuery() {
-        if (!this.isAdmin || !this.currentQuery) return;
+        if (!this.currentQuery) return;
         
         const queryName = document.getElementById('queryName').value;
         const queryDescription = document.getElementById('queryDescription').value.trim();
@@ -501,11 +442,7 @@ const AdminPanel = {
             });
             
             this.showNotification('Query saved successfully!', 'success');
-            
-            // Reload queries list
             await this.loadQueries();
-            
-            // Reload current query to show updated timestamp
             await this.loadQueryForEdit(queryName);
             
         } catch (error) {
@@ -514,8 +451,6 @@ const AdminPanel = {
     },
     
     cancelEdit() {
-        if (!this.isAdmin) return;
-        
         if (confirm('Discard changes?')) {
             document.getElementById('queryEditor').style.display = 'none';
             document.getElementById('editorPlaceholder').style.display = 'flex';
@@ -530,12 +465,10 @@ const AdminPanel = {
         }
     },
     
-    // ==================== USER MANAGEMENT ====================
-    
     async loadUsers() {
-        if (!this.isAdmin) return;
-        
         const usersList = document.getElementById('usersList');
+        if (!usersList) return;
+        
         usersList.innerHTML = '<div class="loader">Loading users...</div>';
         
         try {
@@ -597,8 +530,6 @@ const AdminPanel = {
     async createUser(event) {
         event.preventDefault();
         
-        if (!this.isAdmin) return;
-        
         const username = document.getElementById('newUsername').value.trim();
         const password = document.getElementById('newUserPassword').value;
         const isAdmin = document.getElementById('newUserIsAdmin').checked;
@@ -624,11 +555,7 @@ const AdminPanel = {
             });
             
             this.showNotification(`User '${username}' created successfully!`, 'success');
-            
-            // Clear form
             document.getElementById('createUserForm').reset();
-            
-            // Reload users list
             this.loadUsers();
             
         } catch (error) {
@@ -637,8 +564,6 @@ const AdminPanel = {
     },
     
     async toggleUserAdmin(userId, makeAdmin) {
-        if (!this.isAdmin) return;
-        
         const action = makeAdmin ? 'grant admin privileges to' : 'remove admin privileges from';
         
         if (!confirm(`Are you sure you want to ${action} this user?`)) {
@@ -662,8 +587,6 @@ const AdminPanel = {
     },
     
     async resetUserPassword(userId, username) {
-        if (!this.isAdmin) return;
-        
         const newPassword = prompt(`Enter new password for user '${username}':\n(Minimum 6 characters)`);
         
         if (!newPassword) return;
@@ -689,8 +612,6 @@ const AdminPanel = {
     },
     
     async deleteUser(userId, username) {
-        if (!this.isAdmin) return;
-        
         if (!confirm(`Are you sure you want to delete user '${username}'?\n\nThis action cannot be undone.`)) {
             return;
         }
@@ -708,8 +629,6 @@ const AdminPanel = {
         }
     },
     
-    // ==================== PASSWORD CHANGE ====================
-    
     async changePassword(event) {
         event.preventDefault();
         
@@ -717,13 +636,11 @@ const AdminPanel = {
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         
-        // Validate passwords match
         if (newPassword !== confirmPassword) {
             this.showNotification('New passwords do not match', 'error');
             return;
         }
         
-        // Validate password length
         if (newPassword.length < 6) {
             this.showNotification('Password must be at least 6 characters', 'error');
             return;
@@ -739,11 +656,8 @@ const AdminPanel = {
             });
             
             this.showNotification('Password changed successfully! Redirecting to login...', 'success');
-            
-            // Clear form
             document.getElementById('changePasswordForm').reset();
             
-            // Logout and redirect after 2 seconds
             setTimeout(() => {
                 this.logout();
             }, 2000);
@@ -756,5 +670,6 @@ const AdminPanel = {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[Admin] DOM Content Loaded - Initializing AdminPanel...');
     AdminPanel.init();
 });
