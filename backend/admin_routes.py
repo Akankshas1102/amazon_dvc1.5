@@ -49,6 +49,26 @@ class QueryResponse(BaseModel):
     created_at: Optional[str]
     updated_at: Optional[str]
 
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    is_admin: bool = False
+
+class UpdateUserRequest(BaseModel):
+    is_admin: Optional[bool] = None
+    new_password: Optional[str] = None
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    is_admin: bool
+    created_at: str
+    updated_at: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 # Auth Dependencies
 def get_current_admin_user(authorization: Optional[str] = Header(None)) -> tuple:
     if not authorization:
@@ -78,7 +98,8 @@ def require_admin(auth_info: tuple = Depends(get_current_admin_user)) -> str:
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return username
 
-# Routes
+# ==================== AUTH ROUTES ====================
+
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
     with get_sqlite_connection() as conn:
@@ -88,7 +109,39 @@ async def login(request: LoginRequest):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         access_token = create_access_token(data={"sub": request.username})
-        return LoginResponse(access_token=access_token, token_type="bearer", username=request.username, is_admin=bool(row['is_admin']))
+        return LoginResponse(
+            access_token=access_token, 
+            token_type="bearer", 
+            username=request.username, 
+            is_admin=bool(row['is_admin'])
+        )
+
+@router.post("/change-password")
+async def change_password(request: ChangePasswordRequest, auth_info: tuple = Depends(get_current_admin_user)):
+    username, is_admin = auth_info
+    
+    with get_sqlite_connection() as conn:
+        # Verify current password
+        cursor = conn.execute("SELECT password_hash FROM admin_users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if not verify_password(request.current_password, row['password_hash']):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+        
+        # Update password
+        new_password_hash = hash_password(request.new_password)
+        conn.execute(
+            "UPDATE admin_users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?",
+            (new_password_hash, username)
+        )
+    
+    logger.info(f"Password changed successfully for user: {username}")
+    return {"success": True, "message": "Password changed successfully"}
+
+# ==================== QUERY ROUTES ====================
 
 @router.get("/queries")
 async def list_queries(auth_info: tuple = Depends(get_current_admin_user)):
@@ -106,6 +159,20 @@ async def get_query_details(query_name: str, auth_info: tuple = Depends(get_curr
         raise HTTPException(status_code=404, detail=f"Query '{query_name}' not found")
     return QueryResponse(**query_data)
 
+@router.get("/queries/{query_name}/default")
+async def get_default_query_endpoint(query_name: str, auth_info: tuple = Depends(get_current_admin_user)):
+    """Get the default query SQL for a query name"""
+    default_sql = get_default_query(query_name)
+    
+    if not default_sql:
+        raise HTTPException(status_code=404, detail=f"No default query found for '{query_name}'")
+    
+    return {
+        "query_name": query_name,
+        "query_sql": default_sql,
+        "description": f"Default {query_name} configuration"
+    }
+
 @router.post("/queries")
 async def update_query(request: QueryRequest, admin_username: str = Depends(require_admin)):
     is_valid, error_message = validate_query_syntax(request.query_sql)
@@ -114,3 +181,130 @@ async def update_query(request: QueryRequest, admin_username: str = Depends(requ
     if not set_query(request.query_name, request.query_sql, request.description):
         raise HTTPException(status_code=500, detail="Failed to save query")
     return {"success": True, "message": f"Query '{request.query_name}' saved successfully"}
+
+# ==================== USER MANAGEMENT ROUTES ====================
+
+@router.get("/users", response_model=List[UserResponse])
+async def list_users(admin_username: str = Depends(require_admin)):
+    """Get all users (admin only)"""
+    with get_sqlite_connection() as conn:
+        cursor = conn.execute("""
+            SELECT id, username, is_admin, created_at, updated_at 
+            FROM admin_users 
+            ORDER BY created_at DESC
+        """)
+        rows = cursor.fetchall()
+        
+        users = []
+        for row in rows:
+            users.append(UserResponse(
+                id=row['id'],
+                username=row['username'],
+                is_admin=bool(row['is_admin']),
+                created_at=row['created_at'],
+                updated_at=row['updated_at']
+            ))
+        
+        return users
+
+@router.post("/users")
+async def create_user(request: CreateUserRequest, admin_username: str = Depends(require_admin)):
+    """Create a new user (admin only)"""
+    
+    # Validate username length
+    if len(request.username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    
+    # Validate password length
+    if len(request.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    with get_sqlite_connection() as conn:
+        # Check if username already exists
+        cursor = conn.execute("SELECT id FROM admin_users WHERE username = ?", (request.username,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail=f"Username '{request.username}' already exists")
+        
+        # Hash password and create user
+        password_hash = hash_password(request.password)
+        
+        try:
+            conn.execute("""
+                INSERT INTO admin_users (username, password_hash, is_admin)
+                VALUES (?, ?, ?)
+            """, (request.username, password_hash, request.is_admin))
+            
+            logger.info(f"User created: {request.username} (admin: {request.is_admin}) by {admin_username}")
+            
+            return {
+                "success": True, 
+                "message": f"User '{request.username}' created successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error creating user: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create user")
+
+@router.put("/users/{user_id}")
+async def update_user(user_id: int, request: UpdateUserRequest, admin_username: str = Depends(require_admin)):
+    """Update user (admin only)"""
+    
+    with get_sqlite_connection() as conn:
+        # Check if user exists
+        cursor = conn.execute("SELECT username FROM admin_users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        target_username = row['username']
+        
+        # Prevent admin from removing their own admin privileges
+        if target_username == admin_username and request.is_admin is False:
+            raise HTTPException(status_code=400, detail="Cannot remove your own admin privileges")
+        
+        # Update admin status if provided
+        if request.is_admin is not None:
+            conn.execute(
+                "UPDATE admin_users SET is_admin = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (request.is_admin, user_id)
+            )
+            logger.info(f"User {target_username} admin status changed to {request.is_admin} by {admin_username}")
+        
+        # Update password if provided
+        if request.new_password:
+            if len(request.new_password) < 6:
+                raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+            
+            new_password_hash = hash_password(request.new_password)
+            conn.execute(
+                "UPDATE admin_users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (new_password_hash, user_id)
+            )
+            logger.info(f"Password reset for user {target_username} by {admin_username}")
+        
+        return {"success": True, "message": f"User updated successfully"}
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, admin_username: str = Depends(require_admin)):
+    """Delete user (admin only)"""
+    
+    with get_sqlite_connection() as conn:
+        # Check if user exists
+        cursor = conn.execute("SELECT username FROM admin_users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        target_username = row['username']
+        
+        # Prevent admin from deleting themselves
+        if target_username == admin_username:
+            raise HTTPException(status_code=400, detail="Cannot delete your own account")
+        
+        # Delete user
+        conn.execute("DELETE FROM admin_users WHERE id = ?", (user_id,))
+        
+        logger.info(f"User {target_username} deleted by {admin_username}")
+        
+        return {"success": True, "message": f"User '{target_username}' deleted successfully"}

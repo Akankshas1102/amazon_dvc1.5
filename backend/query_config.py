@@ -81,14 +81,14 @@ def decrypt_query(encrypted_query: str) -> str:
 # ==================== DEFAULT QUERIES ====================
 # These are the queries that will be used if not overridden by admin
 
-# DEVICE QUERIES (Device_TBL is the main table)
+# DEVICE QUERY - Gets panel device states for buildings
 DEFAULT_DEVICE_QUERY = """
 SELECT dvcBuilding_FRK, dvcCurrentState_TXT
 FROM Device_TBL
 WHERE dvcDeviceType_FRK = 138
 """
 
-# BUILDING QUERIES (Building_TBL is the main table)
+# BUILDING QUERY - Gets all buildings
 DEFAULT_BUILDING_QUERY = """
 SELECT Building_PRK, bldBuildingName_TXT
 FROM Building_TBL
@@ -100,7 +100,7 @@ def get_query(query_name: str) -> str:
     Retrieve a query by name from database, or return default.
     
     Args:
-        query_name: Name of the query to retrieve
+        query_name: Name of the query to retrieve ('device_query' or 'building_query')
         
     Returns:
         Decrypted SQL query string
@@ -130,6 +130,9 @@ def get_query(query_name: str) -> str:
 def get_default_query(query_name: str) -> str:
     """Get the default query for a given query name."""
     defaults = {
+        'device_query': DEFAULT_DEVICE_QUERY,
+        'building_query': DEFAULT_BUILDING_QUERY,
+        # Legacy names for backward compatibility
         'device': DEFAULT_DEVICE_QUERY,
         'building': DEFAULT_BUILDING_QUERY
     }

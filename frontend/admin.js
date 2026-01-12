@@ -176,14 +176,26 @@ const AdminPanel = {
     },
     
     populateBasicMode(querySQL) {
-        const deviceTypeMatch = querySQL.match(/dvcDeviceType_FRK\s*=\s*(\d+)/i);
-        if (deviceTypeMatch) {
-            document.getElementById('deviceType').value = deviceTypeMatch[1];
-        }
+        const queryLower = querySQL.toLowerCase();
         
-        const buildingTableMatch = querySQL.match(/FROM\s+(\w+)/i);
-        if (buildingTableMatch) {
-            document.getElementById('buildingTableName').value = buildingTableMatch[1];
+        // For device_query: Extract device type
+        if (this.currentQuery && this.currentQuery.query_name === 'device_query') {
+            const deviceTypeMatch = querySQL.match(/dvcDeviceType_FRK\s*=\s*(\d+)/i);
+            if (deviceTypeMatch) {
+                document.getElementById('deviceType').value = deviceTypeMatch[1];
+            }
+            
+            const deviceTableMatch = querySQL.match(/FROM\s+(\w+)/i);
+            if (deviceTableMatch) {
+                document.getElementById('buildingTableName').value = deviceTableMatch[1];
+            }
+        }
+        // For building_query: Extract building table
+        else if (this.currentQuery && this.currentQuery.query_name === 'building_query') {
+            const buildingTableMatch = querySQL.match(/FROM\s+(\w+)/i);
+            if (buildingTableMatch) {
+                document.getElementById('buildingTableName').value = buildingTableMatch[1];
+            }
         }
     },
     
@@ -321,6 +333,9 @@ const AdminPanel = {
             document.getElementById('queryName').value = data.query_name;
             document.getElementById('queryDescription').value = data.description || '';
             
+            // Update field labels based on query type
+            this.updateFieldLabels(queryName);
+            
             this.switchQueryMode('basic');
             this.populateBasicMode(data.query_sql);
             this.populateAdvancedMode(data.query_sql);
@@ -331,6 +346,41 @@ const AdminPanel = {
             
         } catch (error) {
             this.showNotification(`Failed to load query: ${queryName}`, 'error');
+        }
+    },
+    
+    updateFieldLabels(queryName) {
+        const deviceTypeLabel = document.querySelector('label[for="deviceType"]');
+        const tableNameLabel = document.querySelector('label[for="buildingTableName"]');
+        const deviceTypeInput = document.getElementById('deviceType');
+        const tableNameInput = document.getElementById('buildingTableName');
+        
+        if (queryName === 'device_query') {
+            // Device query: Device Type + Device Table Name
+            if (deviceTypeLabel) {
+                deviceTypeLabel.innerHTML = 'Device Type <small>(Default: 138 for panel devices)</small>';
+                deviceTypeLabel.parentElement.style.display = 'block';
+            }
+            if (tableNameLabel) {
+                tableNameLabel.innerHTML = 'Device Table Name <small>(Default: Device_TBL)</small>';
+            }
+            if (deviceTypeInput) {
+                deviceTypeInput.placeholder = 'e.g., 138';
+            }
+            if (tableNameInput) {
+                tableNameInput.placeholder = 'e.g., Device_TBL';
+            }
+        } else if (queryName === 'building_query') {
+            // Building query: Hide device type, show Building Table Name
+            if (deviceTypeLabel) {
+                deviceTypeLabel.parentElement.style.display = 'none';
+            }
+            if (tableNameLabel) {
+                tableNameLabel.innerHTML = 'Building Table Name <small>(Default: Building_TBL)</small>';
+            }
+            if (tableNameInput) {
+                tableNameInput.placeholder = 'e.g., Building_TBL';
+            }
         }
     },
     
@@ -372,38 +422,50 @@ const AdminPanel = {
             return;
         }
         
-        try {
-            const response = await this.apiRequest(`queries/${this.currentQuery.query_name}/test`, {
-                method: 'POST'
-            });
-            
-            if (response.success) {
-                this.showNotification('✅ Query syntax is valid!', 'success');
-            } else {
-                this.showNotification(`❌ ${response.message}`, 'error');
+        // Client-side validation
+        const dangerous = ['drop', 'delete', 'truncate', 'insert', 'update', 'alter', 'create'];
+        const queryLower = querySQL.toLowerCase();
+        
+        for (const keyword of dangerous) {
+            if (queryLower.includes(keyword)) {
+                this.showNotification(`Query contains forbidden keyword: ${keyword}`, 'error');
+                return;
             }
-        } catch (error) {
-            this.showNotification('Query validation failed', 'error');
         }
+        
+        this.showNotification('✅ Query syntax is valid!', 'success');
     },
     
     buildQueryFromMode() {
         if (this.queryMode === 'advanced') {
             return document.getElementById('querySQL').value.trim();
         } else {
-            const deviceType = document.getElementById('deviceType').value.trim();
-            const buildingTable = document.getElementById('buildingTableName').value.trim();
-            
             if (!this.currentQuery) return '';
             
             let querySQL = this.currentQuery.query_sql;
             
-            if (deviceType) {
-                querySQL = querySQL.replace(/dvcDeviceType_FRK\s*=\s*\d+/gi, `dvcDeviceType_FRK = ${deviceType}`);
+            // For device_query
+            if (this.currentQuery.query_name === 'device_query') {
+                const deviceType = document.getElementById('deviceType').value.trim();
+                const deviceTable = document.getElementById('buildingTableName').value.trim();
+                
+                if (deviceType) {
+                    querySQL = querySQL.replace(/dvcDeviceType_FRK\s*=\s*\d+/gi, `dvcDeviceType_FRK = ${deviceType}`);
+                }
+                
+                if (deviceTable) {
+                    // Replace FROM Device_TBL or FROM <any_table>
+                    querySQL = querySQL.replace(/FROM\s+\w+/gi, `FROM ${deviceTable}`);
+                }
             }
-            
-            if (buildingTable) {
-                querySQL = querySQL.replace(/Building_TBL/gi, buildingTable);
+            // For building_query
+            else if (this.currentQuery.query_name === 'building_query') {
+                const buildingTable = document.getElementById('buildingTableName').value.trim();
+                
+                if (buildingTable) {
+                    // Replace FROM Building_TBL or FROM <any_table>
+                    querySQL = querySQL.replace(/FROM\s+\w+/gi, `FROM ${buildingTable}`);
+                }
             }
             
             return querySQL;
@@ -659,7 +721,10 @@ const AdminPanel = {
             document.getElementById('changePasswordForm').reset();
             
             setTimeout(() => {
-                this.logout();
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUsername');
+                localStorage.removeItem('isAdmin');
+                window.location.href = '/login';
             }, 2000);
             
         } catch (error) {
