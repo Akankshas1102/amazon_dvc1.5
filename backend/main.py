@@ -1,15 +1,12 @@
 """
 Main Application Entry Point
 =============================
-MODIFICATIONS:
-- Added admin routes import and registration
-- Added routes to serve login.html and admin.html
-- Fixed static file serving
+FIXED: Main page now redirects to login page
 """
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -131,10 +128,15 @@ else:
         logger.error(f"admin-style.css not found at {css_path}")
         return HTMLResponse(content="/* CSS not found */", status_code=404)
 
-    # HTML pages
-    @app.get("/", response_class=HTMLResponse)
+    # HTML pages - FIXED: Main page redirects to login
+    @app.get("/", response_class=RedirectResponse)
     async def serve_home():
-        logger.debug("Serving home page (index.html)")
+        logger.debug("Root path accessed, redirecting to login page")
+        return RedirectResponse(url="/login", status_code=302)
+    
+    @app.get("/main", response_class=HTMLResponse)
+    async def serve_main_app():
+        logger.debug("Serving main app page (index.html)")
         html_path = os.path.join(frontend_dir, "index.html")
         if os.path.exists(html_path):
             return FileResponse(html_path)
@@ -192,9 +194,10 @@ if __name__ == "__main__":
     logger.info("="*50)
     logger.info("")
     logger.info("🔗 Application URLs:")
-    logger.info(f"   Main App:    http://{APP_HOST}:{APP_PORT}/")
-    logger.info(f"   Admin Login: http://{APP_HOST}:{APP_PORT}/login")
-    logger.info(f"   Admin Panel: http://{APP_HOST}:{APP_PORT}/admin")
+    logger.info(f"   Root (redirects): http://{APP_HOST}:{APP_PORT}/")
+    logger.info(f"   Admin Login:      http://{APP_HOST}:{APP_PORT}/login")
+    logger.info(f"   Main App:         http://{APP_HOST}:{APP_PORT}/main")
+    logger.info(f"   Admin Panel:      http://{APP_HOST}:{APP_PORT}/admin")
     logger.info("")
     logger.info("="*50)
     

@@ -14,7 +14,7 @@
                 <span class="welcome-text">Welcome, <span id="username">Admin</span></span>
             </div>
             <div class="header-right">
-                <a href="/" class="btn btn-secondary">← Main App</a>
+                <a href="/main" class="btn btn-secondary">← Main App</a>
                 <button id="logoutBtn" class="btn btn-danger">Logout</button>
             </div>
         </header>
@@ -95,7 +95,7 @@
                             <!-- Basic Mode Form -->
                             <div id="basicModeForm" style="display:none;">
                                 <div class="form-group">
-                                    <label for="deviceType">Device Type (for panel_devices query)</label>
+                                    <label for="deviceType">Device Type (for device query)</label>
                                     <input 
                                         type="number" 
                                         id="deviceType" 
@@ -106,7 +106,29 @@
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="buildingTableName">Building Table Name</label>
+                                    <label for="deviceTableName">Device Table Name (for device query)</label>
+                                    <input 
+                                        type="text" 
+                                        id="deviceTableName" 
+                                        class="form-input" 
+                                        placeholder="e.g., Device_TBL"
+                                    />
+                                    <small>Default: Device_TBL</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="buildingPrkField">Building PRK Field (for building query)</label>
+                                    <input 
+                                        type="text" 
+                                        id="buildingPrkField" 
+                                        class="form-input" 
+                                        placeholder="e.g., Building_PRK"
+                                    />
+                                    <small>Default: Building_PRK</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="buildingTableName">Building Table Name (for building query)</label>
                                     <input 
                                         type="text" 
                                         id="buildingTableName" 
@@ -118,10 +140,12 @@
 
                                 <div class="info-box">
                                     <strong>ℹ️ Basic Mode</strong>
-                                    <p>In Basic Mode, you can only modify:</p>
+                                    <p>In Basic Mode, you can modify:</p>
                                     <ul>
-                                        <li><strong>Device Type:</strong> The numeric ID used to filter panel devices</li>
-                                        <li><strong>Building Table:</strong> The name of the table containing building information</li>
+                                        <li><strong>Device Type:</strong> Filter panel devices (device query only)</li>
+                                        <li><strong>Device Table:</strong> Device table name (device query only)</li>
+                                        <li><strong>Building PRK Field:</strong> Building primary key column name (building query only)</li>
+                                        <li><strong>Building Table:</strong> Building table name (building query only)</li>
                                     </ul>
                                     <p>All other query logic remains unchanged for safety.</p>
                                 </div>

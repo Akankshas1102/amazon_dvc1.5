@@ -32,9 +32,15 @@ class ConfigEncryptorApp:
         self.master = master
         master.title("Configuration Encryption Tool (GUI)")
         
-        # Paths are initialized relative to the GUI folder
-        self.public_key_path = tk.StringVar(value=os.path.join(os.path.dirname(__file__), "public_key.pem"))
-        self.private_key_path = tk.StringVar(value=os.path.join(os.path.dirname(__file__), "private_key.pem"))
+        # FIXED: Get paths for GUI folder (for public_key.pem) and backend folder (for private_key.pem)
+        gui_dir = os.path.dirname(os.path.abspath(__file__))
+        backend_dir = os.path.join(os.path.dirname(gui_dir), "backend")
+        
+        # Public key stays in GUI folder
+        self.public_key_path = tk.StringVar(value=os.path.join(gui_dir, "public_key.pem"))
+        
+        # FIXED: Private key goes directly to backend folder
+        self.private_key_path = tk.StringVar(value=os.path.join(backend_dir, "private_key.pem"))
 
         self.setup_ui()
 
@@ -42,7 +48,7 @@ class ConfigEncryptorApp:
         # --- Key Management ---
         key_frame = tk.LabelFrame(self.master, text="1. Key Generation (Run First)")
         key_frame.pack(padx=10, pady=5, fill="x")
-        tk.Button(key_frame, text="Generate Keys (Saves to GUI folder)", command=self.generate_keys_action).pack(padx=5, pady=5)
+        tk.Button(key_frame, text="Generate Keys (Private → backend/, Public → GUI/)", command=self.generate_keys_action).pack(padx=5, pady=5)
         
         # --- Data Input ---
         data_frame = tk.LabelFrame(self.master, text="2. Data Input & Public Key")
@@ -81,14 +87,29 @@ class ConfigEncryptorApp:
 
     def generate_keys_action(self):
         try:
-            # Keys will be saved in the GUI directory
-            priv_path, pub_path = generate_key_pair(self.private_key_path.get(), self.public_key_path.get())
-            messagebox.showinfo("Success", f"Keys generated successfully!\n\nACTION: Move '{os.path.basename(priv_path)}' to your backend/ folder.")
+            # FIXED: Generate keys with correct paths
+            priv_path = self.private_key_path.get()
+            pub_path = self.public_key_path.get()
+            
+            # Ensure backend directory exists
+            backend_dir = os.path.dirname(priv_path)
+            if not os.path.exists(backend_dir):
+                os.makedirs(backend_dir)
+            
+            # Generate keys
+            generate_key_pair(priv_path, pub_path)
+            
+            messagebox.showinfo(
+                "Success", 
+                f"Keys generated successfully!\n\n"
+                f"✅ Private key saved to: {priv_path}\n"
+                f"✅ Public key saved to: {pub_path}\n\n"
+                f"No manual copying needed!"
+            )
         except Exception as e:
             messagebox.showerror("Error", f"Key generation failed: {e}")
 
     def encrypt_and_save_action(self):
-        # ... (Encryption logic omitted for brevity, identical to previous response's ConfigTool) ...
         self.encrypted_output.delete(1.0, tk.END)
         data_str = self.data_input.get(1.0, tk.END).strip()
         pub_key_path = self.public_key_path.get()
@@ -102,12 +123,18 @@ class ConfigEncryptorApp:
             encrypted_payload = encrypt_data(data_dict, pub_key_path)
             self.encrypted_output.insert(tk.END, encrypted_payload)
             
-            # Save the file for the backend
+            # FIXED: Save file with default location in backend folder
+            gui_dir = os.path.dirname(os.path.abspath(__file__))
+            backend_dir = os.path.join(os.path.dirname(gui_dir), "backend")
+            default_save_path = os.path.join(backend_dir, "encrypted_db_config.bin")
+            
             save_path = filedialog.asksaveasfilename(
                 defaultextension=".bin",
                 initialfile="encrypted_db_config.bin",
-                title="Save Encrypted Configuration File (Place this in backend/)"
+                initialdir=backend_dir,
+                title="Save Encrypted Configuration File (Recommended: backend/ folder)"
             )
+            
             if save_path:
                 with open(save_path, 'w') as f:
                     f.write(encrypted_payload)
@@ -119,7 +146,6 @@ class ConfigEncryptorApp:
             messagebox.showerror("Error", f"Encryption failed: {e}")
 
     def decrypt_action(self):
-        # ... (Decryption logic omitted for brevity, identical to previous response's ConfigTool) ...
         self.decrypted_output.delete(1.0, tk.END)
         encrypted_payload = self.encrypted_output.get(1.0, tk.END).strip()
         priv_key_path = self.private_key_path.get()

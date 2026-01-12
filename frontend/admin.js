@@ -28,7 +28,7 @@ const AdminPanel = {
             console.log('[Admin] Not admin, redirecting to main app...');
             this.showNotification('Admin privileges required. Redirecting to main app...', 'error');
             setTimeout(() => {
-                window.location.href = '/';
+                window.location.href = '/main';
             }, 2000);
             return;
         }
@@ -187,11 +187,17 @@ const AdminPanel = {
             
             const deviceTableMatch = querySQL.match(/FROM\s+(\w+)/i);
             if (deviceTableMatch) {
-                document.getElementById('buildingTableName').value = deviceTableMatch[1];
+                document.getElementById('deviceTableName').value = deviceTableMatch[1];
             }
         }
-        // For building_query: Extract building table
+        // For building_query: Extract building_prk field and building table
         else if (this.currentQuery && this.currentQuery.query_name === 'building_query') {
+            // Extract building_prk column name
+            const buildingPrkMatch = querySQL.match(/SELECT\s+([\w_]+)\s*,/i);
+            if (buildingPrkMatch) {
+                document.getElementById('buildingPrkField').value = buildingPrkMatch[1];
+            }
+            
             const buildingTableMatch = querySQL.match(/FROM\s+(\w+)/i);
             if (buildingTableMatch) {
                 document.getElementById('buildingTableName').value = buildingTableMatch[1];
@@ -352,34 +358,41 @@ const AdminPanel = {
     updateFieldLabels(queryName) {
         const deviceTypeLabel = document.querySelector('label[for="deviceType"]');
         const tableNameLabel = document.querySelector('label[for="buildingTableName"]');
+        const deviceTableNameLabel = document.querySelector('label[for="deviceTableName"]');
+        const buildingPrkLabel = document.querySelector('label[for="buildingPrkField"]');
+        
         const deviceTypeInput = document.getElementById('deviceType');
         const tableNameInput = document.getElementById('buildingTableName');
+        const deviceTableNameInput = document.getElementById('deviceTableName');
+        const buildingPrkInput = document.getElementById('buildingPrkField');
         
         if (queryName === 'device_query') {
             // Device query: Device Type + Device Table Name
-            if (deviceTypeLabel) {
-                deviceTypeLabel.innerHTML = 'Device Type <small>(Default: 138 for panel devices)</small>';
+            if (deviceTypeLabel && deviceTypeLabel.parentElement) {
                 deviceTypeLabel.parentElement.style.display = 'block';
             }
-            if (tableNameLabel) {
-                tableNameLabel.innerHTML = 'Device Table Name <small>(Default: Device_TBL)</small>';
+            if (deviceTableNameLabel && deviceTableNameLabel.parentElement) {
+                deviceTableNameLabel.parentElement.style.display = 'block';
             }
-            if (deviceTypeInput) {
-                deviceTypeInput.placeholder = 'e.g., 138';
+            if (buildingPrkLabel && buildingPrkLabel.parentElement) {
+                buildingPrkLabel.parentElement.style.display = 'none';
             }
-            if (tableNameInput) {
-                tableNameInput.placeholder = 'e.g., Device_TBL';
+            if (tableNameLabel && tableNameLabel.parentElement) {
+                tableNameLabel.parentElement.style.display = 'none';
             }
         } else if (queryName === 'building_query') {
-            // Building query: Hide device type, show Building Table Name
-            if (deviceTypeLabel) {
+            // Building query: Building PRK field + Building Table Name
+            if (deviceTypeLabel && deviceTypeLabel.parentElement) {
                 deviceTypeLabel.parentElement.style.display = 'none';
             }
-            if (tableNameLabel) {
-                tableNameLabel.innerHTML = 'Building Table Name <small>(Default: Building_TBL)</small>';
+            if (deviceTableNameLabel && deviceTableNameLabel.parentElement) {
+                deviceTableNameLabel.parentElement.style.display = 'none';
             }
-            if (tableNameInput) {
-                tableNameInput.placeholder = 'e.g., Building_TBL';
+            if (buildingPrkLabel && buildingPrkLabel.parentElement) {
+                buildingPrkLabel.parentElement.style.display = 'block';
+            }
+            if (tableNameLabel && tableNameLabel.parentElement) {
+                tableNameLabel.parentElement.style.display = 'block';
             }
         }
     },
@@ -447,23 +460,27 @@ const AdminPanel = {
             // For device_query
             if (this.currentQuery.query_name === 'device_query') {
                 const deviceType = document.getElementById('deviceType').value.trim();
-                const deviceTable = document.getElementById('buildingTableName').value.trim();
+                const deviceTable = document.getElementById('deviceTableName').value.trim();
                 
                 if (deviceType) {
                     querySQL = querySQL.replace(/dvcDeviceType_FRK\s*=\s*\d+/gi, `dvcDeviceType_FRK = ${deviceType}`);
                 }
                 
                 if (deviceTable) {
-                    // Replace FROM Device_TBL or FROM <any_table>
                     querySQL = querySQL.replace(/FROM\s+\w+/gi, `FROM ${deviceTable}`);
                 }
             }
             // For building_query
             else if (this.currentQuery.query_name === 'building_query') {
+                const buildingPrk = document.getElementById('buildingPrkField').value.trim();
                 const buildingTable = document.getElementById('buildingTableName').value.trim();
                 
+                if (buildingPrk) {
+                    // Replace the first column in SELECT
+                    querySQL = querySQL.replace(/SELECT\s+[\w_]+\s*,/gi, `SELECT ${buildingPrk},`);
+                }
+                
                 if (buildingTable) {
-                    // Replace FROM Building_TBL or FROM <any_table>
                     querySQL = querySQL.replace(/FROM\s+\w+/gi, `FROM ${buildingTable}`);
                 }
             }

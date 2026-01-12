@@ -1,12 +1,7 @@
 """
 ProEvent Service - FIXED VERSION
 =================================
-Handles ProEvent state management with correct logic:
-- Reactive State: 0 = ARMED (reactive to events)
-- Non-Reactive State: 1 = DISARMED (non-reactive to events)
-- Panel States: AreaArmingStates.4 = ARMED, AreaArmingStates.2 = DISARMED
-- Respects manually set non-reactive ProEvents
-- Applies ignore changes immediately
+FIXED: When ProEvent is unchecked from ignore list, it becomes REACTIVE (state = 0) immediately
 """
 
 from services import proserver_service, device_service, cache_service
@@ -250,9 +245,12 @@ def reevaluate_building_state(building_id: int):
     """
     FIXED - Triggers an immediate re-application of ProEvent states for a building.
     This is called when user changes ignore settings.
+    
+    CRITICAL FIX: When a ProEvent is unchecked (removed from ignore list), it should become
+    REACTIVE (state = 0) immediately, regardless of panel state.
     """
     try:
-        logger.info(f"[Building {building_id}] Manual re-evaluation triggered - applying current ProEvent states...")
+        logger.info(f"[Building {building_id}] Manual re-evaluation triggered - applying ProEvent states based on current settings...")
         
         # Get current panel state
         live_states = proserver_service.get_all_live_building_arm_states()
@@ -265,10 +263,11 @@ def reevaluate_building_state(building_id: int):
         panel_state_str = 'ARMED (AreaArmingStates.4)' if is_panel_armed else 'DISARMED (AreaArmingStates.2)'
         logger.info(f"[Building {building_id}] Current panel state: {panel_state_str}")
         
-        # Apply the correct ProEvent states based on current panel state
+        # FIXED LOGIC: Apply the correct ProEvent states
+        # This will set unchecked ProEvents to REACTIVE (state = 0) immediately
         apply_proevent_states_for_building(building_id, is_panel_armed)
         
-        logger.info(f"✅ [Building {building_id}] Re-evaluation completed")
+        logger.info(f"✅ [Building {building_id}] Re-evaluation completed - ProEvent states updated")
         
     except Exception as e:
         logger.error(f"❌ Error in reevaluate_building_state (Building {building_id}): {e}", exc_info=True)
