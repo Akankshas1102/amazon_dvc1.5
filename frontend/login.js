@@ -45,7 +45,7 @@ async function verifyTokenAndRedirect(token) {
                 window.location.replace('/admin');
             } else {
                 console.log('[Login] Regular user, redirecting to main app...');
-                window.location.replace('/');
+                window.location.replace('/main');
             }
         } else {
             console.log('[Login] Token is invalid, clearing...');
@@ -117,7 +117,7 @@ async function handleLogin(event) {
                     window.location.replace('/admin');
                 } else {
                     console.log('[Login] Redirecting user to main app...');
-                    window.location.replace('/');
+                    window.location.replace('/main');
                 }
             }, 500);
         } else {

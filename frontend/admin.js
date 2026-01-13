@@ -9,7 +9,7 @@ const AdminPanel = {
     init() {
         console.log('[Admin] Starting initialization...');
         
-        // Check authentication
+        // Check authentication FIRST - before anything else
         this.token = localStorage.getItem('adminToken');
         this.username = localStorage.getItem('adminUsername');
         this.isAdmin = localStorage.getItem('isAdmin') === 'true';
@@ -18,20 +18,27 @@ const AdminPanel = {
         console.log('[Admin] Username:', this.username);
         console.log('[Admin] Is Admin:', this.isAdmin);
         
+        // Immediate redirect if no token
         if (!this.token) {
             console.log('[Admin] No token, redirecting to login...');
-            window.location.href = '/login';
+            window.location.replace('/login');
             return;
         }
 
+        // Immediate redirect if not admin - CRITICAL FIX
         if (!this.isAdmin) {
             console.log('[Admin] Not admin, redirecting to main app...');
-            this.showNotification('Admin privileges required. Redirecting to main app...', 'error');
-            setTimeout(() => {
-                window.location.href = '/main';
-            }, 2000);
+            alert('Admin privileges required. Redirecting to main app...');
+            window.location.replace('/main');
             return;
         }
+        
+        // Only continue if user is admin
+        this.initializeAdminPanel();
+    },
+    
+    initializeAdminPanel() {
+        console.log('[Admin] Initializing admin panel for admin user...');
         
         // Display username
         const usernameElement = document.getElementById('username');
@@ -214,7 +221,7 @@ const AdminPanel = {
             localStorage.removeItem('adminToken');
             localStorage.removeItem('adminUsername');
             localStorage.removeItem('isAdmin');
-            window.location.href = '/login';
+            window.location.replace('/login');
         }
     },
     
@@ -239,13 +246,16 @@ const AdminPanel = {
                     localStorage.removeItem('adminToken');
                     localStorage.removeItem('adminUsername');
                     localStorage.removeItem('isAdmin');
-                    window.location.href = '/login';
+                    window.location.replace('/login');
                 }, 2000);
                 throw new Error('Unauthorized');
             }
             
             if (response.status === 403) {
                 this.showNotification('Admin privileges required', 'error');
+                setTimeout(() => {
+                    window.location.replace('/main');
+                }, 2000);
                 throw new Error('Forbidden');
             }
             
@@ -741,7 +751,7 @@ const AdminPanel = {
                 localStorage.removeItem('adminToken');
                 localStorage.removeItem('adminUsername');
                 localStorage.removeItem('isAdmin');
-                window.location.href = '/login';
+                window.location.replace('/login');
             }, 2000);
             
         } catch (error) {

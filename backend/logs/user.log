@@ -48,3 +48,25 @@
 2026-01-12 22:01:46 - User: admin | Activity: VIEWED_USERS_LIST
 2026-01-12 22:01:47 - User: admin | Activity: VIEWED_QUERY - building_query
 2026-01-12 22:01:56 - User: admin | Activity: LOADED_DEFAULT_QUERY - building_query
+2026-01-12 23:41:10 - User: admin | Activity: LOGIN_SUCCESS
+2026-01-12 23:41:55 - User: admin | Activity: VIEWED_QUERIES_LIST
+2026-01-12 23:41:55 - User: admin | Activity: VIEWED_USERS_LIST
+2026-01-12 23:41:57 - User: admin | Activity: VIEWED_QUERY - building_query
+2026-01-12 23:42:04 - User: admin | Activity: VIEWED_QUERY - device_query
+2026-01-12 23:48:09 - User: admin | Activity: VIEWED_QUERY - building_query
+2026-01-12 23:48:10 - User: admin | Activity: VIEWED_QUERY - device_query
+2026-01-12 23:57:18 - User: admin | Activity: VIEWED_QUERIES_LIST
+2026-01-12 23:57:19 - User: admin | Activity: VIEWED_QUERIES_LIST
+2026-01-12 23:57:19 - User: admin | Activity: VIEWED_USERS_LIST
+2026-01-12 23:57:22 - User: admin | Activity: VIEWED_QUERIES_LIST
+2026-01-12 23:57:22 - User: admin | Activity: VIEWED_USERS_LIST
+2026-01-12 23:57:24 - User: admin | Activity: VIEWED_QUERY - building_query
+2026-01-12 23:57:29 - User: admin | Activity: VIEWED_QUERY - device_query
+2026-01-13 19:27:41 - User: admin | Activity: LOGIN_SUCCESS
+2026-01-13 19:27:42 - User: admin | Activity: VIEWED_QUERIES_LIST
+2026-01-13 19:27:42 - User: admin | Activity: VIEWED_USERS_LIST
+2026-01-13 19:27:44 - User: admin | Activity: VIEWED_USERS_LIST
+2026-01-13 19:28:00 - User: admin | Activity: USER_CREATED - akanksha (admin: False)
+2026-01-13 19:28:00 - User: admin | Activity: VIEWED_USERS_LIST
+2026-01-13 19:28:19 - User: akanksha | Activity: LOGIN_SUCCESS
+2026-01-13 19:28:38 - User: akanksha | Activity: LOGIN_SUCCESS
