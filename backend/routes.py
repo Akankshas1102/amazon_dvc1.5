@@ -19,17 +19,14 @@ router = APIRouter()
 
 @router.get("/panel_status", response_model=PanelStatus)
 def get_panel_status():
-    logger.debug("GET /panel_status called")
     status = cache_service.get_cache_value('panel_armed')
     if status is None:
         status = True
         cache_service.set_cache_value('panel_armed', status)
-    logger.info(f"Panel status retrieved: {'Armed' if status else 'Disarmed'}")
     return PanelStatus(armed=status)
 
 @router.post("/panel_status", response_model=PanelStatus)
 def set_panel_status(status: PanelStatus):
-    logger.info(f"POST /panel_status called with status: {'Armed' if status.armed else 'Disarmed'}")
     cache_service.set_cache_value('panel_armed', status.armed)
     logger.info(f"✅ Global panel status set to: {'Armed' if status.armed else 'Disarmed'}")
     return status
@@ -39,16 +36,10 @@ def set_panel_status(status: PanelStatus):
 
 @router.get("/buildings", response_model=list[BuildingOut])
 def list_buildings():
-    """
-    Fetches real buildings from PROD DB and merges schedules from SQLite DB.
-    """
-    logger.info("GET /buildings called - Fetching all buildings...")
+    """Fetches real buildings and merges schedules."""
     try:
         buildings_from_db = device_service.get_distinct_buildings()
-        logger.debug(f"Retrieved {len(buildings_from_db)} buildings from database")
-        
         schedules_from_sqlite = get_all_building_times()
-        logger.debug(f"Retrieved schedules for {len(schedules_from_sqlite)} buildings from SQLite")
         
         buildings_out = []
         for b in buildings_from_db:
@@ -61,8 +52,6 @@ def list_buildings():
                 name=b["name"],
                 start_time=start_time
             ))
-        
-        logger.info(f"✅ Returning {len(buildings_out)} buildings")
         return buildings_out
     except Exception as e:
         logger.error(f"❌ Error in list_buildings: {e}", exc_info=True)
@@ -76,26 +65,16 @@ def list_proevents(
     limit: int = Query(default=100, ge=1, le=10000),
     offset: int = Query(default=0, ge=0)
 ):
-    """
-    Fetches real devices (proevents) from PROD DB and merges
-    ignore status from SQLite DB.
-    """
-    logger.info(f"GET /devices called - building={building}, search='{search}', limit={limit}, offset={offset}")
-    
+    """Fetches real devices and merges ignore status."""
     if building is None:
-        logger.warning("Building ID is required but not provided")
         raise HTTPException(status_code=400, detail="A building ID is required.")
     
     try:
-        logger.debug(f"Fetching proevents for building {building}...")
         proevents = proevent_service.get_all_proevents_for_building(
             building_id=building, search=search, limit=limit, offset=offset
         )
-        logger.debug(f"Retrieved {len(proevents)} proevents")
         
         ignored_proevents = get_ignored_proevents()
-        logger.debug(f"Retrieved {len(ignored_proevents)} ignored proevents from SQLite")
-        
         proevents_out = []
         
         for p in proevents:
@@ -111,7 +90,6 @@ def list_proevents(
             )
             proevents_out.append(proevent_out)
 
-        logger.info(f"✅ Returning {len(proevents_out)} devices for building {building}")
         return proevents_out
     except Exception as e:
         logger.error(f"❌ Error in list_proevents for building {building}: {e}", exc_info=True)
@@ -122,54 +100,38 @@ def list_proevents(
 
 @router.get("/buildings/{building_id}/time")
 def get_building_scheduled_time(building_id: int):
-    logger.info(f"GET /buildings/{building_id}/time called")
     try:
         times = get_building_time(building_id)
         result = {
             "building_id": building_id,
             "start_time": times.get("start_time") if times else None
         }
-        logger.debug(f"Building {building_id} schedule: {result}")
         return result
     except Exception as e:
-        logger.error(f"❌ Error getting building time for {building_id}: {e}", exc_info=True)
+        logger.error(f"❌ Error getting building time: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/buildings/{building_id}/time", response_model=BuildingTimeResponse)
 def set_building_scheduled_time(building_id: int, request: BuildingTimeRequest):
-    logger.info(f"POST /buildings/{building_id}/time called with start_time={request.start_time}")
-    
     if request.building_id != building_id:
-        logger.warning(f"Building ID mismatch: path={building_id}, body={request.building_id}")
         raise HTTPException(400, "Building ID in path and body must match")
     
     try:
-        success = set_building_time(building_id, request.start_time)
-        if not success:
-            logger.error(f"Failed to update building scheduled time for {building_id}")
-            raise HTTPException(500, "Failed to update building scheduled time")
-        
-        logger.info(f"✅ Building {building_id} schedule updated to start_time={request.start_time}")
+        set_building_time(building_id, request.start_time)
         return BuildingTimeResponse(
             building_id=building_id,
             start_time=request.start_time,
             updated=True
         )
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"❌ Error setting building time for {building_id}: {e}", exc_info=True)
+        logger.error(f"❌ Error setting building time: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/buildings/{building_id}/reevaluate")
 def reevaluate_building(building_id: int):
-    """
-    Triggers scheduler logic for one building immediately.
-    """
-    logger.info(f"POST /buildings/{building_id}/reevaluate called")
+    """Triggers scheduler logic immediately."""
     try:
         proevent_service.reevaluate_building_state(building_id)
-        logger.info(f"✅ Building {building_id} re-evaluated successfully")
         return {"status": "success", "message": f"Building {building_id} re-evaluated."}
     except Exception as e:
         logger.error(f"❌ Failed to re-evaluate building {building_id}: {e}", exc_info=True)
@@ -179,18 +141,38 @@ def reevaluate_building(building_id: int):
 @router.post("/proevents/ignore/bulk")
 def manage_ignored_proevents_bulk(req: IgnoredItemBulkRequest):
     """
-    Saves the ignore list to the local SQLite DB.
+    Saves ignore list AND explicitly forces unchecked items to become reactive.
     """
     logger.info(f"POST /proevents/ignore/bulk called with {len(req.items)} items")
     try:
+        # 1. Update SQLite and identify UNCHECKED items
+        unignored_ids = []
+        unique_buildings = set()
+
         for item in req.items:
-            logger.debug(f"Setting ignore status for proevent {item.item_id}: ignore={item.ignore}")
             set_proevent_ignore_status(
                 item.item_id, item.building_frk, item.device_prk, 
                 ignore_on_arm=False,
                 ignore_on_disarm=item.ignore
             )
-        logger.info(f"✅ Successfully saved ignore status for {len(req.items)} proevents")
+            unique_buildings.add(item.building_frk)
+            
+            # If 'ignore' is False, the user just unchecked it.
+            # We must force this specific ID to become Reactive (0).
+            if item.ignore is False:
+                unignored_ids.append(item.item_id)
+        
+        # 2. Trigger Immediate Re-evaluation with Force List
+        if unignored_ids:
+            logger.info(f"Forcing {len(unignored_ids)} unchecked items to Reactive state immediately.")
+            
+        for building_id in unique_buildings:
+            try:
+                # Pass unignored_ids to force them to 0
+                proevent_service.reevaluate_building_state(building_id, force_reactive_ids=unignored_ids)
+            except Exception as e:
+                logger.error(f"Failed to trigger auto-re-evaluation for building {building_id}: {e}")
+
         return {"status": "success"}
     except Exception as e:
         logger.error(f"❌ Error saving ignore bulk: {e}", exc_info=True)
@@ -201,23 +183,13 @@ def manage_ignored_proevents_bulk(req: IgnoredItemBulkRequest):
 
 @router.post("/devices/action", response_model=DeviceActionSummaryResponse)
 def device_action(req: DeviceActionRequest):
-    """
-    Legacy endpoint - not used by frontend.
-    """
-    logger.warning(f"Legacy endpoint /devices/action called for building {req.building_id} with action={req.action}")
-    
+    logger.warning(f"Legacy endpoint /devices/action called for building {req.building_id}")
     reactive_state = 1 if req.action.lower() == "disarm" else 0
-    
     try:
         affected_rows = proevent_service.set_proevent_reactive_for_building(
             req.building_id, reactive_state, []
         )
-        logger.info(f"Legacy action completed: {affected_rows} rows affected")
-        return DeviceActionSummaryResponse(
-            success_count=affected_rows,
-            failure_count=0,
-            details=[]
-        )
+        return DeviceActionSummaryResponse(success_count=affected_rows, failure_count=0, details=[])
     except Exception as e:
-        logger.error(f"❌ Error during legacy bulk action for building {req.building_id}: {e}", exc_info=True)
+        logger.error(f"❌ Error legacy action: {e}", exc_info=True)
         raise HTTPException(500, str(e))
